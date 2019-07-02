@@ -7,15 +7,14 @@ CLK_TCK=$(getconf CLK_TCK)
 for i in $(ls -l /proc | awk '{print $9}' | grep "^[0-9]*[0-9]$" | sort -n )
 do
 
-# Для каждого процесса определяем значения TTY, STAT, TIME, COMMAND
-
+# Для каждого процесса определяем значения TTY, STAT, COMMAND
 TTY=$(cat /proc/$i/stat | awk '{print $7}')
 STAT=$(cat /proc/$i/stat | awk '{print $3}')
-UTIME=$(cat /proc/$i/stat | awk '{print $14}')
-STIME=$(cat  /proc/$i/stat | awk '{print $17}')
 COMMAND=$(cat /proc/$i/cmdline | awk '{print $0}')
 
 # Считаем значение TIME
+UTIME=$(cat /proc/$i/stat | awk '{print $14}')
+STIME=$(cat  /proc/$i/stat | awk '{print $17}')
 TTIME=$((UTIME + STIME))
 TIME=$((TTIME / CLK_TCK))
 

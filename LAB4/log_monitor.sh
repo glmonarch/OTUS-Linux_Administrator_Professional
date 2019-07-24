@@ -3,6 +3,9 @@
 # Start function log_parser
 function log_parser {
 
+# Create LOCK file
+touch /tmp/lockfile.lock
+
 # Determine path to nginx_log
 path_to_log=$(find / -name nginx_log)
 
@@ -56,16 +59,19 @@ echo "FROM_TIME:$FROM_TIME     TILL_TIME:$TILL_TIME" | mail -s "Report of script
 printf "%s\n" "Ok. E-mail sent." ||
 printf "%s\n" "Error sending reports to e-mail!"
 
+sleep 60
+
+# Remove LOCK file
+rm -rf /tmp/lockfile.lock
+
 # Finish function log_parser
 }
 
-#### Prevent multi run ###
-str=$(ps ax | grep log_monitor.sh | grep bash | grep -v "grep")
+# Prevent multi run
+if [ -e /tmp/lockfile.lock ]
+	then printf "%s\n" "The script already running! Exit."
+	else printf "%s\n" "Starting the script..."
 
-if [ -z "$str" ]i
-then
-      	echo "Ok! Starting the script..."
-	log_parser
-else
-        echo "Failed. The script already running.."
+log_parser
+
 fi

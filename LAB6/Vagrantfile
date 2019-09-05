@@ -1,0 +1,93 @@
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+
+MACHINES = {
+:server => {
+        :box_name => "centos/7",
+        :box_version => "1902.01",
+        :net => [
+                   {ip: '192.168.1.1', adapter: 2, netmask: "255.255.255.252", virtualbox__intnet: "net"},
+                ]
+  },
+  :client => {
+        :box_name => "centos/7",
+        :box_version => "1902.01",
+        :net => [
+                   {ip: '192.168.1.2', adapter: 2, netmask: "255.255.255.252", virtualbox__intnet: "net"},
+                ]
+  },
+
+  }
+
+
+Vagrant.configure("2") do |config|
+
+
+
+  MACHINES.each do |boxname, boxconfig|
+
+    config.vm.define boxname do |box|
+
+        box.vm.box = boxconfig[:box_name]
+        box.vm.host_name = boxname.to_s
+
+        boxconfig[:net].each do |ipconf|
+          box.vm.network "private_network", ipconf
+        end
+
+	box.vm.provider :virtualbox do |vb|
+	  vb.customize ["modifyvm", :id, "--memory", "256"]
+	  vb.customize ["modifyvm", :id, "--audio", "none"]
+	end
+
+	if boxconfig.key?(:public)
+          box.vm.network "public_network", boxconfig[:public]
+        end
+
+        box.vm.provision "shell", inline: <<-SHELL
+          mkdir -p ~root/.ssh
+                cp ~vagrant/.ssh/auth* ~root/.ssh
+        SHELL
+
+        case boxname.to_s
+        when "server"
+          box.vm.provision "shell", run: "always", inline: <<-SHELL
+	    sudo su &&
+            yum install -y wget rpmdevtools rpm-build createrepo yum-utils gcc redhat-lsb-core-4.1-27.el7.centos.1.x86_64 &&
+            mkdir /tmp/rpm && cd /tmp/rpm &&
+	    wget https://nginx.org/packages/centos/7/SRPMS/nginx-1.14.1-1.el7_4.ngx.src.rpm &&
+            wget https://www.openssl.org/source/latest.tar.gz &&
+            rpm -i nginx-1.14.1-1.el7_4.ngx.src.rpm &&
+            tar -xvf latest.tar.gz &&
+            cd /root/rpmbuild/SPECS && mv nginx.spec nginx.spec.orig &&
+            #sed -i 's/--with-debug/--with-debug --with-openssl=\/tmp\/rpm\/openssl-1.1.1c/' nginx.spec
+            wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB6/nginx.spec
+            yum-builddep -y /root/rpmbuild/SPECS/nginx.spec &&
+            rpmbuild -bb /root/rpmbuild/SPECS/nginx.spec &&
+            yum localinstall -y /root/rpmbuild/RPMS/x86_64/nginx-1.14.1-1.el7_4.ngx.x86_64.rpm &&
+            mkdir /usr/share/nginx/html/repo &&
+            cp /root/rpmbuild/RPMS/x86_64/nginx-1.14.1-1.el7_4.ngx.x86_64.rpm /usr/share/nginx/html/repo &&
+            #sed -i '/index  index.html index.htm;/a autoindex on;' /etc/nginx/conf.d/default.conf &&
+            cd /etc/nginx/conf.d && mv default.conf default.conf.orig &&
+            wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB6/default.conf &&
+            createrepo /usr/share/nginx/html/repo &&
+            systemctl start nginx &&
+            systemctl status nginx
+            SHELL
+        when "client"
+          box.vm.provision "shell", run: "always", inline: <<-SHELL
+	    sudo su &&
+            yum install -y lynx wget &&
+            cd /etc/yum.repos.d &&
+            wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB6/otus.repo &&
+            yum repolist enabled | grep otus &&
+            yum list | grep otus
+            SHELL
+
+          end
+         end
+        end
+
+end

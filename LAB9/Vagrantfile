@@ -1,0 +1,87 @@
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+
+MACHINES = {
+  :server => {
+        :box_name => "centos/7",
+        :box_version => "1902.01",
+        :net => [
+                   {ip: '192.168.1.1', adapter: 2, netmask: "255.255.255.252", virtualbox__intnet: "net"},
+                ]
+  },
+  :client => {
+        :box_name => "centos/7",
+        :box_version => "1902.01",
+        :net => [
+                   {ip: '192.168.1.2', adapter: 2, netmask: "255.255.255.252", virtualbox__intnet: "net"},
+                ]
+  },
+
+  }
+
+
+Vagrant.configure("2") do |config|
+
+
+
+  MACHINES.each do |boxname, boxconfig|
+
+    config.vm.define boxname do |box|
+
+        box.vm.box = boxconfig[:box_name]
+        box.vm.host_name = boxname.to_s
+
+        boxconfig[:net].each do |ipconf|
+          box.vm.network "private_network", ipconf
+        end
+
+	box.vm.provider :virtualbox do |vb|
+	  vb.customize ["modifyvm", :id, "--memory", "256"]
+	  vb.customize ["modifyvm", :id, "--audio", "none"]
+	end
+
+	if boxconfig.key?(:public)
+          box.vm.network "public_network", boxconfig[:public]
+        end
+
+        box.vm.provision "shell", inline: <<-SHELL
+          mkdir -p ~root/.ssh
+                cp ~vagrant/.ssh/auth* ~root/.ssh
+        SHELL
+
+        case boxname.to_s
+        when "server"
+          box.vm.provision "shell", run: "always", inline: <<-SHELL
+
+          sudo su &&
+          sed -i '65s/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config &&
+          sed -i '22,25d' /etc/ssh/sshd_config &&
+          systemctl restart sshd
+
+            SHELL
+        when "client"
+          box.vm.provision "shell", run: "always", inline: <<-SHELL
+
+           sudo su &&
+           yum install wget ansible lynx -y &&
+           mkdir -p /home/vagrant/ansible/staging && mkdir -p /home/vagrant/ansible/playbooks/templates &&
+           cd /home/vagrant/ansible/staging &&
+           wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB9/hosts &&
+           cd .. &&
+           wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB9/ansible.cfg &&
+           cd /home/vagrant/ansible/playbooks/templates &&
+           wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB9/nginx.conf.j2 &&
+           cd /home/vagrant/ansible/playbooks &&
+           wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB9/nginx.yml &&
+           cd /home/vagrant/ansible && ansible-playbook playbooks/nginx.yml
+
+
+            SHELL
+
+          end
+         end
+        end
+
+end

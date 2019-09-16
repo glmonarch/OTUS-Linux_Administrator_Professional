@@ -6,7 +6,7 @@ lid -g admin | awk 'BEGIN{FS="("} {print $1}' > /etc/pam.d/pam_permited_users.tx
 # Compare $PAM_USER with permited users:
 if grep -w $PAM_USER /etc/pam.d/pam_permited_users.txt
 then
-	exit 0
+	echo "User in admin's group. Access granted.";
 else
 # Compare current week day with Saturday & Sunday:
 	if [ $(date +%a) = "Sat" ]

@@ -3,7 +3,7 @@
 # Create file with permited users:
 lid -g admin | awk 'BEGIN{FS="("} {print $1}' > /etc/pam.d/pam_permited_users.txt
 
-# �ompare $PAM_USER with permited users:
+# Compare $PAM_USER with permited users:
 if grep -w $PAM_USER /etc/pam.d/pam_permited_users.txt
 then
 	exit 0

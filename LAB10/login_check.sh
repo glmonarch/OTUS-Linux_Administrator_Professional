@@ -9,7 +9,7 @@ then
 	exit 0
 else
 # Compare current week day with Saturday & Sunday:
-	if [ $(date +%a) = "Sat" ]
+	if [ $(date +%a) = "Mon" ]
 	then
 		exit 1
 	elif [ $(date +%a) = "Sun" ]

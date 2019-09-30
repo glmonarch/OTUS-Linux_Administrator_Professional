@@ -2,7 +2,7 @@
 Description=Run Watchlog Script every 10 seconds
 
 [Timer]
-OnUnitActiveSec=10
+OnCalendar=*:*:0/10
 Unit=watchlog.service
 
 [Install]

@@ -2,9 +2,8 @@
 Description=Run Watchlog Script every 10 seconds
 
 [Timer]
-OnStartupSec=1
+OnBootSec=5
 OnUnitActiveSec=10
-RandomizedDelaySec=1
 Unit=watchlog.service
 
 [Install]

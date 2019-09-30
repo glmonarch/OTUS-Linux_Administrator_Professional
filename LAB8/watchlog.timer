@@ -2,7 +2,7 @@
 Description=Run Watchlog Script every 10 seconds
 
 [Timer]
-OnStartupSec=30
+OnStartupSec=1
 OnUnitActiveSec=10
 RandomizedDelaySec=1
 Unit=watchlog.service

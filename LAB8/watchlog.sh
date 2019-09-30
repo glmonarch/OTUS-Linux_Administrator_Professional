@@ -6,7 +6,7 @@ DATE=`date`
 
 if grep $WORD $LOG
 then
-	logger "$DATE: I found KEYWORD!"
+	logger "$DATE: I found KEYWORD: >>> $WORD <<< !"
 else
 	exit 0
 fi

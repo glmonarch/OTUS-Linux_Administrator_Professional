@@ -1,8 +1,8 @@
 [Unit]
-Description=RUN Watchlog script every 30 seconds
+Description=Run Watchlog Script every 5 seconds
 
 [Timer]
-OnUnitActiveSec=30
+OnBootSec=5
 Unit=watchlog.service
 
 [Install]

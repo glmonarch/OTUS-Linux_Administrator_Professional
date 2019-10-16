@@ -1,0 +1,103 @@
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+
+MACHINES = {
+  :server => {
+        :box_name => "centos/7",
+        :box_version => "1902.01",
+        :net => [
+                   {ip: '192.168.1.1', adapter: 2, netmask: "255.255.255.252", virtualbox__intnet: "net"},
+                ]
+  },
+  }
+
+
+Vagrant.configure("2") do |config|
+
+
+
+  MACHINES.each do |boxname, boxconfig|
+
+    config.vm.define boxname do |box|
+
+        box.vm.box = boxconfig[:box_name]
+        box.vm.host_name = boxname.to_s
+
+        boxconfig[:net].each do |ipconf|
+          box.vm.network "private_network", ipconf
+        end
+
+	box.vm.provider :virtualbox do |vb|
+	  vb.customize ["modifyvm", :id, "--memory", "256"]
+	  vb.customize ["modifyvm", :id, "--audio", "none"]
+	end
+
+	if boxconfig.key?(:public)
+          box.vm.network "public_network", boxconfig[:public]
+        end
+
+        box.vm.provision "shell", inline: <<-SHELL
+          mkdir -p ~root/.ssh
+                cp ~vagrant/.ssh/auth* ~root/.ssh
+        SHELL
+
+        case boxname.to_s
+        when "server"
+          box.vm.provision "shell", run: "always", inline: <<-SHELL
+          
+          # Part 1 of HW
+          
+          sudo su &&
+          yum install vim wget -y &&
+          echo "set number" >> /root/.vimrc &&
+          echo "syntax on" >> /root/.vimrc &&
+          cp /root/.vimrc /home/vagrant &&
+          chown vagrant:vagrant /home/vagrant/.vimrc &&
+          sed -i '65s/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config &&
+          sed -i '22,25d' /etc/ssh/sshd_config &&
+          systemctl restart sshd &&
+          touch /etc/sysconfig/watchlog &&
+          echo "WORD=ALERT" > /etc/sysconfig/watchlog &&
+          cd /var/log && wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB8/watchlog.log &&
+          echo "LOG=/var/log/watchlog.log" >> /etc/sysconfig/watchlog &&
+          cd /root && wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB8/watchlog.sh && chmod 777 /root/watchlog.sh &&
+          cd /etc/systemd/system &&
+          wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB8/watchlog.service && chmod 644 watchlog.service &&
+	        wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB8/watchlog.timer && chmod 644 watchlog.timer &&
+	        systemctl daemon-reload &&
+	        systemctl enable watchlog.service && systemctl enable watchlog.timer &&
+
+          # Part 2 of HW
+           
+	        yum install epel-release -y && yum install spawn-fcgi php php-cli mod_fcgid httpd -y &&
+          cd /etc/sysconfig && wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB8/spawn-fcgi &&
+          cd /etc/systemd/system && wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB8/spawn-fcgi.service &&
+          rm -rf /etc/sysconfig/spawn-fcgi &&
+          echo "SOCKET=/var/run/php-fcgi.sock" >> /etc/sysconfig/spawn-fcgi &&
+          echo "OPTIONS="-u apache -g apache -s $SOCKET -S -M 0600 -C 32 -F 1 -- /usr/bin/php-cgi"" >> /etc/sysconfig/spawn-fcgi &&
+
+          # Part 3 of HW
+
+          sed -i 's#EnvironmentFile=\/etc\/sysconfig\/httpd#EnvironmentFile=\/etc\/sysconfig\/httpd-%I#' /usr/lib/systemd/system/httpd.service &&
+          mv /usr/lib/systemd/system/httpd.service /usr/lib/systemd/system/httpd@.service &&
+          echo "OPTIONS=-f conf/httpd-1.conf" > /etc/sysconfig/httpd-1 &&
+          echo "OPTIONS=-f conf/httpd-2.conf" > /etc/sysconfig/httpd-2 &&
+          rm -rf /etc/sysconfig/httpd &&
+          cp /etc/httpd/conf/httpd.conf /etc/httpd/conf/httpd-1.conf &&
+          cp /etc/httpd/conf/httpd.conf /etc/httpd/conf/httpd-2.conf &&
+          rm -rf /etc/httpd/conf/httpd.conf &&
+          sed -i 's#Listen 80#Listen 8080#' /etc/httpd/conf/httpd-2.conf &&
+          sed -i '/Listen 8080/a PidFile /var/run/httpd-2.pid' /etc/httpd/conf/httpd-2.conf
+
+
+
+
+            SHELL
+
+          end
+         end
+        end
+
+end

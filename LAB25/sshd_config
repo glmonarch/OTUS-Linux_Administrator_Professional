@@ -14,7 +14,7 @@ PermitRootLogin yes
 AuthorizedKeysFile	.ssh/authorized_keys
 
 PasswordAuthentication yes
-PermitEmptyPasswords yes
+PermitEmptyPasswords no
 
 ChallengeResponseAuthentication no
 

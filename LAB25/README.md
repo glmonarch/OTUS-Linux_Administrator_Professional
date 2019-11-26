@@ -4,7 +4,7 @@
 2. #vagrant up server client
 3. #vagrant ssh server => systemctl start openvpn@server - запустится OpenVPN в режиме RAS-сервера
 4. #vagrant ssh client => systemctl start openvpn@client - запустится OpenVPN-клиент и подцепится к RAS-серверу
-5. С машины client: #ping 172.16.1.1 - пингуем по VPN-подсети VPN-адрес RAS-сервера
+5. С машины client: #ping 172.16.1.1 - пингуем по VPN-подсети VPN-адрес RAS-сервера. Интерфейс с адресом из подсети 172.16.1.0/24 появляется только после успешного подключения к VPN-серверу.
 
 Результаты замеров скорости iperf3:
 

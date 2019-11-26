@@ -1,1 +1,136 @@
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
 
+MACHINES = {
+  :server => {
+        :box_name => "centos/7",
+        :box_version => "1902.01",
+        :net => [
+                   {ip: '192.168.1.1', adapter: 2, netmask: "255.255.255.252", virtualbox__intnet: "net"},
+                ]
+  },
+
+  :client => {
+        :box_name => "centos/7",
+        :box_version => "1902.01",
+        :net => [
+                   {ip: '192.168.1.2', adapter: 2, netmask: "255.255.255.252", virtualbox__intnet: "net"},
+                ]
+  },
+
+  }
+
+
+Vagrant.configure("2") do |config|
+
+
+
+  MACHINES.each do |boxname, boxconfig|
+
+    config.vm.define boxname do |box|
+
+        box.vm.box = boxconfig[:box_name]
+        box.vm.host_name = boxname.to_s
+
+        boxconfig[:net].each do |ipconf|
+          box.vm.network "private_network", ipconf
+        end
+
+	box.vm.provider :virtualbox do |vb|
+	  vb.customize ["modifyvm", :id, "--memory", "128"]
+	  vb.customize ["modifyvm", :id, "--audio", "none"]
+	end
+
+	if boxconfig.key?(:public)
+          box.vm.network "public_network", boxconfig[:public]
+        end
+
+        box.vm.provision "shell", inline: <<-SHELL
+          mkdir -p ~root/.ssh
+                cp ~vagrant/.ssh/auth* ~root/.ssh
+        SHELL
+
+        case boxname.to_s
+
+        when "server"
+
+          config.vm.network "forwarded_port", guest: 1294, host: 12941
+
+          box.vm.provision "shell", run: "always", inline: <<-SHELL
+
+          ### Homework 1 - TAP & TUN interfaces OpenVPN test bandwidth ###
+
+          sudo su &&
+          yum install epel-release -y &&
+          yum install openvpn iperf3 easy-rsa wget -y &&
+          setenforce 0 &&
+          cd /etc/openvpn &&
+
+          ### THIS server.conf file for STATIC KEY OpenVPN ###
+          ### wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB25/server.conf &&
+
+          openvpn --genkey --secret /etc/openvpn/static.key &&
+          cd /etc/ssh && mv /etc/ssh/sshd_config /etc/ssh/sshd_config.orig &&
+          wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB25/sshd_config &&
+          useradd user && echo password | passwd user --stdin &&
+
+          ### DO NOT USE NEXT COMMAND ON PRODUCTION SERVERS ###
+          chmod 777 /etc/openvpn/static.key &&
+
+          systemctl restart sshd &&
+
+          ### Homework 2 - RAS on OpenVPN ###
+
+          cd /etc/openvpn/ &&
+
+          ### THIS ras-server.conf file for RAS OpenVPN ###
+          wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB25/ras-server.conf &&
+
+          mv /etc/openvpn/ras-server.conf /etc/openvpn/server.conf &&
+          cd /etc/openvpn &&
+          /usr/share/easy-rsa/3.0.6/easyrsa init-pki &&
+          echo 'ras-server' | /usr/share/easy-rsa/3.0.6/easyrsa build-ca nopass &&
+          echo 'ras-server' | /usr/share/easy-rsa/3.0.6/easyrsa gen-req server nopass &&
+          echo 'yes' | /usr/share/easy-rsa/3.0.6/easyrsa sign-req server server &&
+          /usr/share/easy-rsa/3.0.6/easyrsa gen-dh &&
+          openvpn --genkey --secret ta.key &&
+          echo 'client' | /usr/share/easy-rsa/3.0.6/easyrsa gen-req client nopass &&
+          echo 'yes' | /usr/share/easy-rsa/3.0.6/easyrsa sign-req client client &&
+          echo 'iroute 192.168.1.0 255.255.255.0' > /etc/openvpn/client/client &&
+          ### DO NOT USE NEXT COMMAND IN PRODUCTION SERVERS ###
+          chmod -R 777 /etc/openvpn &&
+          systemctl start openvpn@server
+
+
+            SHELL
+
+        when "client"
+          box.vm.provision "shell", run: "always", inline: <<-SHELL
+
+          sudo su &&
+          yum install epel-release -y &&
+          yum install openvpn iperf3 easy-rsa wget sshpass -y &&
+          setenforce 0 &&
+          cd /etc/openvpn &&
+
+          ### THIS client.conf for STATIC KEY OpenVPN ###
+          ### wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB25/client.conf &&
+
+          ### THIS ras-client.conf for RAS OpenVPN ###
+          wget https://raw.githubusercontent.com/glmonarch/otus.ru-Linux_administration/master/LAB25/ras-client.conf &&
+          mv /etc/openvpn/ras-client.conf /etc/openvpn/client.conf &&
+          sshpass -p "password" scp -o StrictHostKeyChecking=no user@192.168.1.1:/etc/openvpn/static.key /etc/openvpn &&
+          sshpass -p "password" scp -o StrictHostKeyChecking=no user@192.168.1.1:/etc/openvpn/pki/ca.crt /etc/openvpn &&
+          sshpass -p "password" scp -o StrictHostKeyChecking=no user@192.168.1.1:/etc/openvpn/pki/issued/client.crt /etc/openvpn &&
+          sshpass -p "password" scp -o StrictHostKeyChecking=no user@192.168.1.1:/etc/openvpn/pki/private/client.key /etc/openvpn
+
+            SHELL
+
+
+          end
+         end
+        end
+
+end

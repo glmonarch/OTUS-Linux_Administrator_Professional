@@ -1,0 +1,92 @@
+### Сборка нового longterm-ядра с kernel.org ###
+
+# Лаба сделана в ВМ на гипервизоре VMWare ESXi 6.5.0 U2 на чистой инсталляции CentOS 7 с минимального дистрибутива с 
+установленными VMWare Tools:
+
+$ sudo yum install open-vm-tools
+$ sudo reboot
+
+# Приступаем к самой лабе
+
+$ cat /etc/centos-release
+CentOS Linux release 7.6.1810 (Core)
+
+$ uname -r
+3.10.0-957.el7.x86_64
+
+# Скачиваем архив longterm-ядра, копируем в /usr/src/kernels и разархивируем:
+
+$ curl -O https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.19.39.tar.xz
+$ sudo cp * /usr/src/kernels
+$ cd /usr/src/kernels
+$ sudo tar -vxpJf linux-4.19.39.tar.xz
+
+# Копируем конфиг текущего ядра в разархивированный каталог с новым ядром:
+
+$ cd /usr/src/kernels/linux-4.19.39
+$ sudo cp /boot/config-3.10.0-957.el7.x86_64 .config
+
+# Находясь в каталоге с новым ядром, перечитываем наш старый конфиг:
+
+$ sudo make oldconfig
+
+# В ответ получаем сообщения с ошибками, что нам не хватает gcc, bison, flex
+# Ставим gcc
+
+$ sudo yum install gcc
+$ sudo yum install bison
+$ sudo yum install flex
+
+# Повторно пробуем перечитать конфиг, отвечаем на вопросы по параметрам, которые появились в новом ядре и которых нет в текущем.
+# Это было долго :)
+
+$ sudo make oldconfig
+
+# Даем команду сборки ядра
+
+$ sudo make
+
+# Получаем сообщения об ошибки с тем, что нам не хвататет bc, elfutils-libelf-devel, OpenSSL
+# Ставим:
+
+$ sudo yum install bc
+$ sudo yum install elfutils-libelf-devel
+$ sudo yum install openssl-devel
+
+# Снова пробуем собрать ядро. Долго ждем :)
+
+$ sudo make
+
+/bin/sh: perl: command not found
+make[1]: *** [lib/oid_registry_data.c] Error 127
+make: *** [lib] Error 2
+
+$ sudo yum install perl
+
+$ sudo make install
+sh ./arch/x86/boot/install.sh 4.19.39 arch/x86/boot/bzImage \
+	System.map "/boot"
+depmod: ERROR: could not open directory /lib/modules/4.19.39: No such file or directory
+depmod: FATAL: could not search modules: No such file or directory
+Kernel version 4.19.39 has no module directory /lib/modules/4.19.39
+[root@centos-lab1 linux-4.19.39]# ls -la /lib/modules
+total 12
+drwxr-xr-x.  3 root root 4096 May  4 09:40 .
+dr-xr-xr-x. 28 root root 4096 May  4 11:10 ..
+drwxr-xr-x.  7 root root 4096 May  4 09:42 3.10.0-957.el7.x86_64
+
+### ??? Верно ли я решил проблему следующей командой $ sudo mkdir -p /lib/modules/4.19.39 ??? ###
+
+$ sudo mkdir -p /lib/modules/4.19.39
+
+$ sudo make install 
+sh ./arch/x86/boot/install.sh 4.19.39 arch/x86/boot/bzImage \
+	System.map "/boot"
+depmod: WARNING: could not open /lib/modules/4.19.39/modules.order: No such file or directory
+depmod: WARNING: could not open /lib/modules/4.19.39/modules.builtin: No such file or directory
+depmod: WARNING: could not open /var/tmp/dracut.iIY9PQ/initramfs/lib/modules/4.19.39/modules.order: No such file or directory
+depmod: WARNING: could not open /var/tmp/dracut.iIY9PQ/initramfs/lib/modules/4.19.39/modules.builtin: No such file or directory
+
+### ??? Можно ли игнорировать вышестоящие ворнинги ??? ###
+
+$ make modules_install
